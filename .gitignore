@@ -2,3 +2,4 @@ build/*
 dist/*
 mtga-export.spec
 *.pyc
+venv
