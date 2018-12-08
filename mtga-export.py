@@ -17,6 +17,7 @@ import scryfall
 __version__ = "0.2.2"
 MTGA_COLLECTION_KEYWORD = "PlayerInventory.GetPlayerCardsV3"
 MTGA_WINDOWS_LOG_FILE = os.getenv('APPDATA')+"\..\LocalLow\Wizards Of The Coast\MTGA\output_log.txt"
+MTGA_WINDOWS_FORMATS_FILE = os.getenv('APPDATA')+"\..\LocalLow\Wizards Of The Coast\MTGA\\formats.json"
 
 class MtgaLogParsingError(ValueError):
     pass
@@ -27,8 +28,9 @@ class MtgaUnknownCard(ValueError):
 class MtgaLog(object):
     """Process MTGA/Unity log file"""
 
-    def __init__(self, log_filename):
+    def __init__(self, log_filename, formats_file):
         self.log_filename = log_filename
+        self.formats_file = formats_file
 
     def get_last_keyword_block(self, keyword):
         """Find json block for specific keyword (last in the file)
@@ -68,6 +70,20 @@ class MtgaLog(object):
         json_string = ''.join(json_list)
         return json.loads(json_string)
 
+    def _get_formats_json(self):
+        '''gets the formats json'''
+        with open(self.formats_file, encoding='utf-8-sig') as formatsfile:
+            json_data = json.loads(formatsfile.read())
+            return json_data
+
+    def get_format_sets(self, mtg_format):
+        """returns list of current sets in standard format"""
+        json_data = self._get_formats_json()
+        for item in json_data:
+            if item.get("name").lower() == str(mtg_format):
+                return item.get("sets")
+
+
     def get_collection(self):
         collection = self.get_last_json_block('<== ' + MTGA_COLLECTION_KEYWORD)
         for (id, count) in iteritems(collection):
@@ -104,6 +120,7 @@ def get_argparse_parser():
         ]
     )
     parser.add_argument("-gf", "--goldfish", help="Export in mtggoldfish format", action="store_true")
+    parser.add_argument("-t", "--tracker", help="Export set completion", action="store_true")
     parser.add_argument("-ds", "--deckstats", help="Export in deckstats format", action="store_true")
     parser.add_argument("-f", "--file", help="Store export to file", nargs=1)
     parser.add_argument("--debug", help="Show debug messages", action="store_true")
@@ -122,7 +139,7 @@ def parse_arguments(args_string=None):
         args = parser.parse_args()
     else:
         args = parser.parse_args(shlex.split(args_string))
-
+        
     if len(sys.argv) < 2:
         parser.print_help()
         sys.exit(0)
@@ -166,6 +183,7 @@ def main(args_string=None):
     args = parse_arguments(args_string)
 
     log_file = MTGA_WINDOWS_LOG_FILE
+    formats_file = MTGA_WINDOWS_FORMATS_FILE
     if args.log_file:
         log_file = args.log_file[0]
 
@@ -173,7 +191,7 @@ def main(args_string=None):
         print("Log file does not exist, provide proper logfile [%s]" % log_file)
         sys.exit(1)
 
-    mlog = MtgaLog(log_file)
+    mlog = MtgaLog(log_file, formats_file)
 
     if args.collids:
         args.keyword = MTGA_COLLECTION_KEYWORD
@@ -193,13 +211,27 @@ def main(args_string=None):
                 fields.append(str(getattr(card, key)))
             output.append(','.join(fields))
 
+    if args.tracker:
+        sets_progression_output = {}
+        sets_list = mlog.get_format_sets("standard")
+        for set_item in sets_list:
+            sets_progression_output[set_item] = {'uniqueCardsOwned': 0, 'completeSetsOwned': 0, 'totalInset': 0}
+
+        output.append('[')
+        for card, count in get_collection(args, mlog):
+            sets_progression_output[card.set]['uniqueCardsOwned'] += 1
+            if count >= 4:
+                sets_progression_output[card.set]['completeSetsOwned'] += 1
+
+        output.append(']')
+
     if args.goldfish:
         output.append('Card,Set ID,Set Name,Quantity,Foil')
         for card, count in get_collection(args, mlog):
             card_set = card.set
             if card_set == 'ANA':
                 card_set = 'ARENA'
-            output.append('"%s",%s,%s,%s' % (card.pretty_name, card_set, '', count))
+            output.append('"%s",%s,%s,%s,%s' % (card.pretty_name, card_set, '', count, ''))
 
     if args.deckstats:
         output.append('card_name,amount,set_code,is_foil,is_pinned')
@@ -222,4 +254,4 @@ def main(args_string=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main("--tracker -f mtga_collection_goldfish.csv"))
