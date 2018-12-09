@@ -83,7 +83,6 @@ class MtgaLog(object):
             if item.get("name").lower() == str(mtg_format):
                 return item.get("sets")
 
-
     def get_collection(self):
         collection = self.get_last_json_block('<== ' + MTGA_COLLECTION_KEYWORD)
         for (id, count) in iteritems(collection):
@@ -215,7 +214,8 @@ def main(args_string=None):
         sets_progression_output = {}
         sets_list = mlog.get_format_sets("standard")
         for set_item in sets_list:
-            sets_progression_output[set_item] = {'uniqueCardsOwned': 0, 'completeSetsOwned': 0, 'totalInset': 0}
+            set_info = scryfall.get_set_info(set_item)
+            sets_progression_output[set_item] = {'uniqueCardsOwned': 0, 'completeSetsOwned': 0, 'totalSetCount': set_info.get('card_count')}
 
         output.append('[')
         for card, count in get_collection(args, mlog):
