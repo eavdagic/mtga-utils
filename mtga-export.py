@@ -253,4 +253,4 @@ def main(args_string=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main("-ct -f mtga_collection_goldfish.csv"))
+    sys.exit(main())
