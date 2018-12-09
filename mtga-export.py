@@ -119,7 +119,7 @@ def get_argparse_parser():
         ]
     )
     parser.add_argument("-gf", "--goldfish", help="Export in mtggoldfish format", action="store_true")
-    parser.add_argument("-t", "--tracker", help="Export set completion", action="store_true")
+    parser.add_argument("-ct", "--completiontracker", help="Export set completion", action="store_true")
     parser.add_argument("-ds", "--deckstats", help="Export in deckstats format", action="store_true")
     parser.add_argument("-f", "--file", help="Store export to file", nargs=1)
     parser.add_argument("--debug", help="Show debug messages", action="store_true")
@@ -210,20 +210,19 @@ def main(args_string=None):
                 fields.append(str(getattr(card, key)))
             output.append(','.join(fields))
 
-    if args.tracker:
+    if args.completiontracker:
         sets_progression_output = {}
         sets_list = mlog.get_format_sets("standard")
         for set_item in sets_list:
             set_info = scryfall.get_set_info(set_item)
-            sets_progression_output[set_item] = {'uniqueCardsOwned': 0, 'completeSetsOwned': 0, 'totalSetCount': set_info.get('card_count')}
+            sets_progression_output[set_item] = {'singlesOwned': 0, 'completeSetsOwned': 0, 'totalSetCount': set_info.get('card_count', 0)}
 
-        output.append('[')
         for card, count in get_collection(args, mlog):
-            sets_progression_output[card.set]['uniqueCardsOwned'] += 1
+            sets_progression_output[card.set]['singlesOwned'] += 1
             if count >= 4:
                 sets_progression_output[card.set]['completeSetsOwned'] += 1
 
-        output.append(']')
+        output.append(json.dumps(sets_progression_output, indent=2))
 
     if args.goldfish:
         output.append('Card,Set ID,Set Name,Quantity,Foil')
@@ -254,4 +253,4 @@ def main(args_string=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main("--tracker -f mtga_collection_goldfish.csv"))
+    sys.exit(main("-ct -f mtga_collection_goldfish.csv"))

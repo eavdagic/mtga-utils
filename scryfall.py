@@ -51,9 +51,12 @@ def scryfall_to_mtga(scryfall_card):
     )
     return mtga_card
 
-def get_set_info(set):
+def get_set_info(set_name):
     """gets info on requested set"""
-    response = requests.get(SCRYFALL_SETS_API+'/'+str(set))
+    response = requests.get(SCRYFALL_SETS_API+'/'+str(set_name))
+    if response.status_code == requests.codes.not_found:
+        print('Unknown set: %s. Reason: %s %s' % (set_name, response.status_code, response.reason))
+        return {}
     if response.status_code != requests.codes.ok:
         raise ScryfallError('Unknown set: %s. Status code: %s' % (set, response.status_code))
     return response.json()
